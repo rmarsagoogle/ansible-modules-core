@@ -135,6 +135,18 @@ options:
       - if set boot disk will be removed after instance destruction
     required: false
     default: "true"
+  use_existing_disk:
+    description:
+      - If True and if an existing disk with the same name/location is found, use that disk instead of creating a new one.
+    required: false
+    default: false
+    choices: ["true","false"]
+    aliases: []
+  disk_size:
+    description:
+      - The size of the boot disk created for this instance (in GB)
+    required: false
+    default: 10
     aliases: []
 
 requirements: [ "libcloud" ]
@@ -152,7 +164,8 @@ EXAMPLES = '''
     zone: us-central1-a
     machine_type: n1-standard-1
     image: debian-7
-
+    external_ip: None
+    disk_size: 32
 # Example using defaults and with metadata to create a single 'foo' instance
 - local_action:
     module: gce
@@ -258,7 +271,7 @@ def get_instance_info(inst):
         'name': inst.name,
         'network': netname,
         'private_ip': inst.private_ips[0],
-        'public_ip': public_ip,
+        'public_ip': (len(inst.public_ips)>0) and inst.public_ips[0] or None,
         'status': ('status' in inst.extra) and inst.extra['status'] or None,
         'tags': ('tags' in inst.extra) and inst.extra['tags'] or [],
         'zone': ('zone' in inst.extra) and inst.extra['zone'].name or None,
@@ -287,11 +300,17 @@ def create_instances(module, gce, instance_names):
     tags = module.params.get('tags')
     zone = module.params.get('zone')
     ip_forward = module.params.get('ip_forward')
-    external_ip = module.params.get('external_ip')
     disk_auto_delete = module.params.get('disk_auto_delete')
-
-    if external_ip == "none":
-        external_ip = None
+    lc_use_existing_disk = module.params.get('use_existing_disk')
+    lc_external_ip = module.params.get('external_ip','ephemeral')
+    disk_type = module.params.get('disk_type')
+    disk_auto_delete = module.params.get('disk_auto_delete')
+    disk_size = module.params.get('disk_size')
+    if lc_external_ip.lower()=='none':
+        lc_external_ip = None
+    print image, machine_type, metadata
+    print network, persistent_boot_disk, disks, state, tags
+    print zone, lc_use_existing_disk, lc_external_ip, disk_type, disk_auto_delete
 
     new_instances = []
     changed = False
@@ -345,15 +364,15 @@ def create_instances(module, gce, instance_names):
             pd = lc_disks[0]
         elif persistent_boot_disk:
             try:
-                pd = gce.create_volume(None, "%s" % name, image=lc_image)
+                pd = gce.create_volume(disk_size, "%s" % name, image=lc_image)
             except ResourceExistsError:
                 pd = gce.ex_get_volume("%s" % name, lc_zone)
         inst = None
         try:
             inst = gce.create_node(name, lc_machine_type, lc_image,
                     location=lc_zone, ex_network=network, ex_tags=tags,
-                    ex_metadata=metadata, ex_boot_disk=pd, ex_can_ip_forward=ip_forward,
-                    external_ip=external_ip, ex_disk_auto_delete=disk_auto_delete)
+                    ex_metadata=metadata, ex_boot_disk=pd, ex_can_ip_forward=ip_forward, use_existing_disk=lc_use_existing_disk,
+                    external_ip=lc_external_ip, ex_disk_type=disk_type, ex_disk_auto_delete=disk_auto_delete)
             changed = True
         except ResourceExistsError:
             inst = gce.ex_get_node(name, lc_zone)
@@ -444,9 +463,11 @@ def main():
             pem_file = dict(),
             project_id = dict(),
             ip_forward = dict(type='bool', default=False),
-            external_ip = dict(choices=['ephemeral', 'none'],
-                    default='ephemeral'),
+            external_ip = dict(choices=['ephemeral','none'], default='ephemeral'),
+            use_existing_disk = dict(type='bool', default=False),
+            disk_type = dict(choices=['pd-standard','pd-ssd'], default='pd-standard'),
             disk_auto_delete = dict(type='bool', default=True),
+            disk_size = dict(),
         )
     )
 
