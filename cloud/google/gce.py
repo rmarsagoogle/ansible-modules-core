@@ -148,7 +148,11 @@ options:
     required: false
     default: 10
     aliases: []
-
+  service_accounts:
+    description:
+      - a list of service accounts for the instance
+    required: false
+    aliases: []
 requirements: [ "libcloud" ]
 notes:
   - Either I(name) or I(instance_names) is required.
@@ -306,11 +310,9 @@ def create_instances(module, gce, instance_names):
     disk_type = module.params.get('disk_type')
     disk_auto_delete = module.params.get('disk_auto_delete')
     disk_size = module.params.get('disk_size')
+    service_accounts = module.params.get('service_accounts')
     if lc_external_ip.lower()=='none':
         lc_external_ip = None
-    print image, machine_type, metadata
-    print network, persistent_boot_disk, disks, state, tags
-    print zone, lc_use_existing_disk, lc_external_ip, disk_type, disk_auto_delete
 
     new_instances = []
     changed = False
@@ -372,7 +374,8 @@ def create_instances(module, gce, instance_names):
             inst = gce.create_node(name, lc_machine_type, lc_image,
                     location=lc_zone, ex_network=network, ex_tags=tags,
                     ex_metadata=metadata, ex_boot_disk=pd, ex_can_ip_forward=ip_forward, use_existing_disk=lc_use_existing_disk,
-                    external_ip=lc_external_ip, ex_disk_type=disk_type, ex_disk_auto_delete=disk_auto_delete)
+                    external_ip=lc_external_ip, ex_disk_type=disk_type, 
+                    ex_disk_auto_delete=disk_auto_delete, ex_service_accounts=service_accounts)
             changed = True
         except ResourceExistsError:
             inst = gce.ex_get_node(name, lc_zone)
@@ -468,6 +471,7 @@ def main():
             disk_type = dict(choices=['pd-standard','pd-ssd'], default='pd-standard'),
             disk_auto_delete = dict(type='bool', default=True),
             disk_size = dict(),
+            service_accounts = dict(type='list'),
         )
     )
 
