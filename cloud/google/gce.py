@@ -130,11 +130,11 @@ options:
     default: "ephemeral"
     aliases: []
   disk_auto_delete:
-    version_added: "1.9"
     description:
       - if set boot disk will be removed after instance destruction
     required: false
     default: "true"
+    version_added: "1.8.3"
   use_existing_disk:
     description:
       - If True and if an existing disk with the same name/location is found, use that disk instead of creating a new one.
@@ -142,17 +142,20 @@ options:
     default: false
     choices: ["true","false"]
     aliases: []
+    version_added: "1.8.3"
   disk_size:
     description:
       - The size of the boot disk created for this instance (in GB)
     required: false
     default: 10
     aliases: []
+    version_added: "1.8.3"
   service_accounts:
     description:
       - a list of service accounts for the instance
     required: false
     aliases: []
+    version_added: "1.8.3"
 requirements: [ "libcloud" ]
 notes:
   - Either I(name) or I(instance_names) is required.

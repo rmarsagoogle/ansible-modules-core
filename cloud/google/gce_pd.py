@@ -116,6 +116,7 @@ options:
     default: "pd-standard"
     choices: ["pd-standard", "pd-ssd"]
     aliases: []
+    version_added: "1.8.3"
 
 requirements: [ "libcloud" ]
 author: Eric Johnson <erjohnso@google.com>
@@ -160,7 +161,6 @@ def main():
             service_account_email = dict(),
             pem_file = dict(),
             project_id = dict(),
-            disk_type = dict(default='pd-standard', choices=['pd-standard', 'pd-ssd']),
         )
     )
 
@@ -176,7 +176,6 @@ def main():
     snapshot = module.params.get('snapshot')
     state = module.params.get('state')
     zone = module.params.get('zone')
-    disk_type = module.params.get('disk_type')
 
     if detach_only and not instance_name:
         module.fail_json(
