@@ -116,7 +116,7 @@ options:
     default: "pd-standard"
     choices: ["pd-standard", "pd-ssd"]
     aliases: []
-    version_added: "1.8.3"
+    version_added: "1.9"
 
 requirements: [ "libcloud" ]
 author: Eric Johnson <erjohnso@google.com>

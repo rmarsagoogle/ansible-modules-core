@@ -142,20 +142,20 @@ options:
     default: false
     choices: ["true","false"]
     aliases: []
-    version_added: "1.8.3"
+    version_added: "1.9"
   disk_size:
     description:
       - The size of the boot disk created for this instance (in GB)
     required: false
     default: 10
     aliases: []
-    version_added: "1.8.3"
+    version_added: "1.9"
   service_accounts:
     description:
       - a list of service accounts for the instance
     required: false
     aliases: []
-    version_added: "1.8.3"
+    version_added: "1.9"
 requirements: [ "libcloud" ]
 notes:
   - Either I(name) or I(instance_names) is required.
