@@ -153,7 +153,6 @@ def main():
             mode = dict(default='READ_ONLY', choices=['READ_WRITE', 'READ_ONLY']),
             name = dict(required=True),
             size_gb = dict(default=10),
-            disk_type = dict(default='pd-standard'),
             image = dict(),
             snapshot = dict(),
             state = dict(default='present'),
