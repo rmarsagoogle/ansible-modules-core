@@ -158,7 +158,7 @@ def format_allowed(allowed):
     """Format the 'allowed' value so that it is GCE compatible."""
     return_value = []
     if allowed.count(";") == 0:
-        return format_allowed_section(allowed)
+        return [format_allowed_section(allowed)]
     else:
         sections = allowed.split(";")
         for section in sections:
