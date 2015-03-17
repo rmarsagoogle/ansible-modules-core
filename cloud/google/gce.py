@@ -317,7 +317,6 @@ def create_instances(module, gce, instance_names):
     if lc_external_ip.lower()=='none':
         lc_external_ip = None
     ip_forward = module.params.get('ip_forward')
-    disk_auto_delete = module.params.get('disk_auto_delete')
     new_instances = []
     changed = False
 
@@ -469,7 +468,6 @@ def main():
             service_account_email = dict(),
             pem_file = dict(),
             project_id = dict(),
-            ip_forward = dict(type='bool', default=False),
             external_ip = dict(choices=['ephemeral','none'], default='ephemeral'),
             use_existing_disk = dict(type='bool', default=False),
             disk_type = dict(choices=['pd-standard','pd-ssd'], default='pd-standard'),
