@@ -316,7 +316,8 @@ def create_instances(module, gce, instance_names):
     service_accounts = module.params.get('service_accounts')
     if lc_external_ip.lower()=='none':
         lc_external_ip = None
-
+    ip_forward = module.params.get('ip_forward')
+    disk_auto_delete = module.params.get('disk_auto_delete')
     new_instances = []
     changed = False
 
