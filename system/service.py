@@ -703,14 +703,10 @@ class LinuxService(Service):
 
             # Check if we're already in the correct state
             service_enabled = self.get_systemd_service_enabled()
-            if self.enable and service_enabled:
-                self.changed = False
-            elif not self.enable and not service_enabled:
-                self.changed = False
-            elif not self.enable:
-                self.changed = False
 
-            if not self.changed:
+            # self.changed should already be true
+            if self.enable == service_enabled:
+                self.changed = False
                 return
 
         #
@@ -857,7 +853,7 @@ class LinuxService(Service):
                 # systemd commands take the form <cmd> <action> <name>
                 svc_cmd = self.svc_cmd
                 arguments = "%s %s" % (self.__systemd_unit, arguments)
-        elif self.svc_initscript:
+        elif self.svc_cmd is None and self.svc_initscript:
             # upstart
             svc_cmd = "%s" % self.svc_initscript
 
@@ -928,10 +924,13 @@ class FreeBsdService(Service):
 
     def get_service_status(self):
         rc, stdout, stderr = self.execute_command("%s %s %s %s" % (self.svc_cmd, self.name, 'onestatus', self.arguments))
-        if rc == 1:
-            self.running = False
-        elif rc == 0:
-            self.running = True
+        if self.name == "pf":
+            self.running = "Enabled" in stdout
+        else:
+            if rc == 1:
+                self.running = False
+            elif rc == 0:
+                self.running = True
 
     def service_enable(self):
         if self.enable:

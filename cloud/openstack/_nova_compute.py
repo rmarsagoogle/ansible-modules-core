@@ -33,6 +33,7 @@ DOCUMENTATION = '''
 ---
 module: nova_compute
 version_added: "1.2"
+deprecated: Deprecated in 2.0. Use os_server instead
 short_description: Create/Delete VMs from OpenStack
 description:
    - Create or Remove virtual machines from Openstack.
@@ -518,7 +519,7 @@ def _get_server_state(module, nova):
         (ip_changed, server) = _check_floating_ips(module, nova, server)
         private = openstack_find_nova_addresses(getattr(server, 'addresses'), 'fixed', 'private')
         public = openstack_find_nova_addresses(getattr(server, 'addresses'), 'floating', 'public')
-        module.exit_json(changed = ip_changed, id = server.id, public_ip = ''.join(public), private_ip = ''.join(private), info = server._info)
+        module.exit_json(changed = ip_changed, id = server.id, public_ip = public, private_ip = private, info = server._info)
     if server and module.params['state'] == 'absent':
         return True
     if module.params['state'] == 'absent':

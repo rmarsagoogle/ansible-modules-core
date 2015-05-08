@@ -3,6 +3,7 @@
 
 # (c) 2012, Michael DeHaan <michael.dehaan@gmail.com>
 # (c) 2013, Dylan Martin <dmartin@seattlecentral.edu>
+# (c) 2015, Toshio Kuratomi <tkuratomi@ansible.com>
 #
 # This file is part of Ansible
 #
@@ -50,6 +51,13 @@ options:
     required: no
     default: null
     version_added: "1.6"
+  list_files:
+    description:
+      - If set to True, return the list of files that are contained in the tarball.
+    required: false
+    choices: [ "yes", "no" ]
+    default: "no"
+    version_added: "2.0"
 author: Dylan Martin
 todo:
     - detect changed/unchanged for .zip files
@@ -75,8 +83,13 @@ EXAMPLES = '''
 - unarchive: src=/tmp/foo.zip dest=/usr/local/bin copy=no
 '''
 
+import re
 import os
 from zipfile import ZipFile
+
+# String from tar that shows the tar contents are different from the
+# filesystem
+DIFFERENCE_RE = re.compile(r': (.*) differs$')
 
 class UnarchiveError(Exception):
     pass
@@ -168,9 +181,12 @@ class TgzArchive(object):
 
             # What is different
             changes = set()
-            difference_re = re.compile(r': (.*) differs$')
+            if err:
+                # Assume changes if anything returned on stderr
+                # * Missing files are known to trigger this
+                return dict(unarchived=unarchived, rc=rc, out=out, err=err, cmd=cmd)
             for line in out.splitlines():
-                match = difference_re.search(line)
+                match = DIFFERENCE_RE.search(line)
                 if not match:
                     # Unknown tar output. Assume we have changes
                     return dict(unarchived=unarchived, rc=rc, out=out, err=err, cmd=cmd)
@@ -239,6 +255,7 @@ def main():
             dest              = dict(required=True),
             copy              = dict(default=True, type='bool'),
             creates           = dict(required=False),
+            list_files          = dict(required=False, default=False, type='bool'),
         ),
         add_file_common_args=True,
     )
@@ -287,6 +304,9 @@ def main():
     for filename in handler.files_in_archive:
         file_args['path'] = os.path.join(dest, filename)
         res_args['changed'] = module.set_fs_attributes_if_different(file_args, res_args['changed'])
+
+    if module.params['list_files']:
+        res_args['files'] = handler.files_in_archive
 
     module.exit_json(**res_args)
 

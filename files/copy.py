@@ -43,6 +43,7 @@ options:
     version_added: "1.1"
     description:
       - When used instead of 'src', sets the contents of a file directly to the specified value.
+        This is for simple values, for anything complex or with formatting please switch to the template module.
     required: false
     default: null
   dest:
@@ -240,7 +241,7 @@ def main():
     changed = False
 
     # Special handling for recursive copy - create intermediate dirs
-    if original_basename and dest.endswith("/"):
+    if original_basename and dest.endswith(os.sep):
         dest = os.path.join(dest, original_basename)
         dirname = os.path.dirname(dest)
         if not os.path.exists(dirname) and os.path.isabs(dirname):

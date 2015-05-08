@@ -130,7 +130,7 @@ options:
     aliases: []
   port:
     description:
-      - Port number that the DB instance uses for connections.  Defaults to 3306 for mysql. Must be changed to 1521 for Oracle, 1443 for SQL Server, 5432 for PostgreSQL. Used only when command=create or command=replicate.
+      - Port number that the DB instance uses for connections.  Defaults to 3306 for mysql. Must be changed to 1521 for Oracle, 1433 for SQL Server, 5432 for PostgreSQL. Used only when command=create or command=replicate.
     required: false
     default: null
     aliases: []
@@ -759,7 +759,7 @@ def modify_db_instance(module, conn):
     valid_vars = ['apply_immediately', 'backup_retention', 'backup_window',
                   'db_name', 'engine_version', 'instance_type', 'iops', 'license_model',
                   'maint_window', 'multi_zone', 'new_instance_name',
-                  'option_group', 'parameter_group' 'password', 'size', 'upgrade']
+                  'option_group', 'parameter_group', 'password', 'size', 'upgrade']
 
     params = validate_parameters(required_vars, valid_vars, module)
     instance_name = module.params.get('instance_name')
@@ -931,11 +931,15 @@ def validate_parameters(required_vars, valid_vars, module):
     if module.params.get('security_groups'):
         params[sec_group] = module.params.get('security_groups').split(',')
 
-    if module.params.get('vpc_security_groups'):
-        groups_list = []
-        for x in module.params.get('vpc_security_groups'):
-            groups_list.append(boto.rds.VPCSecurityGroupMembership(vpc_group=x))
-        params["vpc_security_groups"] = groups_list
+    vpc_groups = module.params.get('vpc_security_groups')
+    if vpc_groups:
+        if has_rds2:
+            params['vpc_security_group_ids'] = vpc_groups
+        else:
+            groups_list = []
+            for x in vpc_groups:
+                groups_list.append(boto.rds.VPCSecurityGroupMembership(vpc_group=x))
+            params['vpc_security_groups'] = groups_list
 
     # Convert tags dict to list of tuples that rds2 expects
     if 'tags' in params:

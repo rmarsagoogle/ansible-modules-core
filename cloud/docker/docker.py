@@ -246,6 +246,9 @@ options:
         retries.
     default: 0
     version_added: "1.9"
+  extra_hosts:
+    description:
+    - Dict of custom host-to-IP mappings to be defined in the container
   insecure_registry:
     description:
       - Use insecure private registry by HTTP instead of HTTPS. Needed for
@@ -370,6 +373,13 @@ if HAS_DOCKER_PY:
         from docker.errors import APIError as DockerAPIError
     except ImportError:
         from docker.client import APIError as DockerAPIError
+    try:
+        # docker-py 1.2+
+        import docker.constants
+        DEFAULT_DOCKER_API_VERSION = docker.constants.DEFAULT_DOCKER_API_VERSION
+    except (ImportError, AttributeError):
+        # docker-py less than 1.2
+        DEFAULT_DOCKER_API_VERSION = docker.client.DEFAULT_DOCKER_API_VERSION
 
 
 def _human_to_bytes(number):
@@ -492,6 +502,7 @@ class DockerManager(object):
             'dns': ((0, 3, 0), '1.10'),
             'volumes_from': ((0, 3, 0), '1.10'),
             'restart_policy': ((0, 5, 0), '1.14'),
+            'extra_hosts': ((0, 7, 0), '1.3.1'),
             'pid': ((1, 0, 0), '1.17'),
             # Clientside only
             'insecure_registry': ((0, 5, 0), '0.0')
@@ -528,7 +539,7 @@ class DockerManager(object):
             self.lxc_conf = []
             options = self.module.params.get('lxc_conf')
             for option in options:
-                parts = option.split(':')
+                parts = option.split(':', 1)
                 self.lxc_conf.append({"Key": parts[0], "Value": parts[1]})
 
         self.exposed_ports = None
@@ -560,8 +571,6 @@ class DockerManager(object):
                 docker_url = 'unix://var/run/docker.sock'
 
         docker_api_version = module.params.get('docker_api_version')
-        if not docker_api_version:
-            docker_api_version=docker.client.DEFAULT_DOCKER_API_VERSION
 
         tls_client_cert = module.params.get('tls_client_cert', None)
         if not tls_client_cert and env_cert_path:
@@ -630,7 +639,7 @@ class DockerManager(object):
 
         self.docker_py_versioninfo = get_docker_py_versioninfo()
 
-    def _check_capabilties(self):
+    def _check_capabilities(self):
         """
         Create a list of available capabilities
         """
@@ -651,7 +660,7 @@ class DockerManager(object):
         we lack the capability.
         """
         if not self._capabilities:
-            self._check_capabilties()
+            self._check_capabilities()
 
         if capability in self._capabilities:
             return True
@@ -728,7 +737,7 @@ class DockerManager(object):
             elif p_len == 3:
                 # Bind `container_port` of the container to port `parts[1]` on
                 # IP `parts[0]` of the host machine. If `parts[1]` empty bind
-                # to a dynamically allocacted port of IP `parts[0]`.
+                # to a dynamically allocated port of IP `parts[0]`.
                 bind = (parts[0], int(parts[1])) if parts[1] else (parts[0],)
 
             if container_port in binds:
@@ -811,7 +820,7 @@ class DockerManager(object):
         for image in self.client.images(name=image):
             if resource in image.get('RepoTags', []):
                 return image['RepoTags']
-        return None
+        return []
 
     def get_inspect_containers(self, containers):
         inspect = []
@@ -1118,17 +1127,20 @@ class DockerManager(object):
         else:
             repo_tags = [normalize_image(self.module.params.get('image'))]
 
-        for i in self.client.containers(all=True):
+        for container in self.client.containers(all=True):
             details = None
 
             if name:
-                matches = name in i.get('Names', [])
+                name_list = container.get('Names')
+                if name_list is None:
+                    name_list = []
+                matches = name in name_list
             else:
-                details = self.client.inspect_container(i['Id'])
+                details = self.client.inspect_container(container['Id'])
                 details = _docker_id_quirk(details)
 
                 running_image = normalize_image(details['Config']['Image'])
-                running_command = i['Command'].strip()
+                running_command = container['Command'].strip()
 
                 image_matches = running_image in repo_tags
 
@@ -1140,7 +1152,7 @@ class DockerManager(object):
 
             if matches:
                 if not details:
-                    details = self.client.inspect_container(i['Id'])
+                    details = self.client.inspect_container(container['Id'])
                     details = _docker_id_quirk(details)
 
                 deployed.append(details)
@@ -1233,7 +1245,7 @@ class DockerManager(object):
 
         optionals = {}
         for optional_param in ('dns', 'volumes_from', 'restart_policy',
-                'restart_policy_retry', 'pid'):
+                'restart_policy_retry', 'pid', 'extra_hosts'):
             optionals[optional_param] = self.module.params.get(optional_param)
 
         if optionals['dns'] is not None:
@@ -1253,6 +1265,10 @@ class DockerManager(object):
         if optionals['pid'] is not None:
             self.ensure_capability('pid')
             params['pid_mode'] = optionals['pid']
+
+        if optionals['extra_hosts'] is not None:
+            self.ensure_capability('extra_hosts')
+            params['extra_hosts'] = optionals['extra_hosts']
 
         for i in containers:
             self.client.start(i['Id'], **params)
@@ -1425,7 +1441,7 @@ def main():
             tls_client_key  = dict(required=False, default=None, type='str'),
             tls_ca_cert     = dict(required=False, default=None, type='str'),
             tls_hostname    = dict(required=False, type='str', default=None),
-            docker_api_version = dict(),
+            docker_api_version = dict(required=False, default=DEFAULT_DOCKER_API_VERSION, type='str'),
             username        = dict(default=None),
             password        = dict(),
             email           = dict(),
@@ -1438,6 +1454,7 @@ def main():
             state           = dict(default='started', choices=['present', 'started', 'reloaded', 'restarted', 'stopped', 'killed', 'absent', 'running']),
             restart_policy  = dict(default=None, choices=['always', 'on-failure', 'no']),
             restart_policy_retry = dict(default=0, type='int'),
+            extra_hosts     = dict(type='dict'),
             debug           = dict(default=False, type='bool'),
             privileged      = dict(default=False, type='bool'),
             stdin_open      = dict(default=False, type='bool'),
